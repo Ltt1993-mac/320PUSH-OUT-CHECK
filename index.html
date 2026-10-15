@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>厦航A320S航线绕机检查查询</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        body {
+            background: #f0f4f9;
+            color: #222;
+            padding: 10px;
+        }
+        .header {
+            background: #0052cc;
+            color: white;
+            padding: 12px 20px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        #mainPage { display: block; }
+        #detailPage { display: none; }
+        .plane-wrap {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #c5cdd8;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .plane-img { width: 100%; display: block; }
+        .point-btn {
+            position: absolute;
+            /* 响应式尺寸：大屏50px，小屏自动缩小（位置仍由 top/left 百分比决定，保持不变） */
+            width: clamp(18px, 4.2vw, 50px);
+            height: clamp(18px, 4.2vw, 50px);
+            border-radius: 50%;
+            background: #ff4444;
+            color: white;
+            font-weight: bold;
+            border: 2px solid #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(8px, 1.3vw, 14px);
+            box-shadow: 0 2px 6px #0004;
+            z-index: 10;
+            -webkit-tap-highlight-color: rgba(255,255,255,0.35);
+            touch-action: manipulation;
+            user-select: none;
+            transition: transform .1s ease;
+        }
+        .point-btn:active { transform: scale(1.12); background:#ff2222; }
+        .point-btn:hover {
+            background: #ff2222;
+            transform: scale(1.15);
+        }
+        .back-btn {
+            background: #0052cc;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        .back-btn:hover { background: #0040a0; }
+        .detail-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #003366;
+            border-left: 5px solid #0052cc;
+            padding-left: 10px;
+        }
+        .img-box {
+            background: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .img-label {
+            text-align: center;
+            font-weight: bold;
+            color: #0052cc;
+            font-size: 15px;
+            margin: 12px 0 2px 0;
+            letter-spacing: 1px;
+        }
+        .img-box img {
+            max-width: 100%;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+        }
+        .check-rule {
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            line-height: 1.8;
+        }
+        .check-rule h4 {
+            margin-bottom: 8px;
+            color: #0052cc;
+        }
+        .check-rule ul { padding-left: 22px; }
+        .tip {
+            margin-top:10px; text-align:center; color:#444;
+        }
+        /* ===== 移动端适配 ===== */
+        @media (max-width: 768px) {
+            body { padding: 6px; }
+            .header {
+                font-size: 16px;
+                padding: 10px 12px;
+                margin-bottom: 10px;
+                line-height: 1.3;
+                border-radius: 6px;
+            }
+            .plane-wrap { padding: 6px; border-radius: 6px; }
+            .plane-img { border-radius: 4px; }
+            .tip { font-size: 13px; margin-top: 8px; }
+            .back-btn { font-size: 14px; padding: 9px 16px; margin-bottom: 10px; }
+            .detail-title { font-size: 17px; padding-left: 8px; }
+            .img-box { padding: 8px; }
+            .img-label { font-size: 14px; margin: 10px 0 2px 0; }
+            .check-rule { padding: 12px; line-height: 1.7; font-size: 14px; }
+            .check-rule h4 { font-size: 15px; }
+            .check-rule ul { padding-left: 18px; }
+            .point-btn { border-width: 1.5px; }
+        }
+        @media (max-width: 360px) {
+            .header { font-size: 15px; }
+            .check-rule { font-size: 13px; }
+            .tip { font-size: 12px; }
+        }
+        /* 浮动返回按钮（硬件返回失效时的兜底） */
+        #fabBack {
+            position: fixed;
+            right: 14px;
+            bottom: 18px;
+            z-index: 999;
+            background: #0052cc;
+            color: #fff;
+            border: none;
+            border-radius: 30px;
+            padding: 12px 18px;
+            font-size: 15px;
+            box-shadow: 0 3px 10px #0006;
+            -webkit-tap-highlight-color: rgba(255,255,255,.3);
+            touch-action: manipulation;
+        }
+        #fabBack:active { background:#0040a0; transform: scale(.96); }
+        /* ===== 密码登录遮罩 ===== */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 9999;
+            background: linear-gradient(160deg, #0052cc 0%, #003a99 55%, #002a70 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #loginOverlay.hidden { display: none; }
+        .login-box {
+            background: #fff;
+            border-radius: 12px;
+            padding: 36px 30px 30px;
+            width: 100%;
+            max-width: 340px;
+            box-shadow: 0 12px 40px #0005;
+            text-align: center;
+        }
+        .login-box h2 {
+            font-size: 20px;
+            color: #0052cc;
+            margin-bottom: 8px;
+        }
+        .login-box p {
+            font-size: 13px;
+            color: #777;
+            margin-bottom: 22px;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 18px;
+            letter-spacing: 4px;
+            text-align: center;
+            border: 2px solid #d4dbe5;
+            border-radius: 8px;
+            outline: none;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: rgba(255,255,255,0);
+        }
+        .login-box input:focus { border-color: #0052cc; }
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            font-size: 17px;
+            font-weight: bold;
+            background: #0052cc;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: rgba(255,255,255,.3);
+            touch-action: manipulation;
+        }
+        .login-box button:active { background: #003a99; transform: scale(.98); }
+        #loginError {
+            color: #e02020;
+            font-size: 13px;
+            margin-bottom: 10px;
+            min-height: 18px;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .login-box { padding: 28px 22px 24px; }
+            .login-box h2 { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 密码登录遮罩 -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2>🔒 请输入访问密码</h2>
+            <p>厦门航空 A320S 航线绕机检查</p>
+            <input type="password" id="pwdInput" placeholder="请输入密码" inputmode="numeric" autocomplete="off">
+            <div id="loginError">密码错误，请重新输入</div>
+            <button id="pwdBtn">进入</button>
+        </div>
+    </div>
+
+    <div class="header">厦门航空 A320S 航线绕机检查</div>
+
+    <!-- 首页总图页面 -->
+    <div id="mainPage">
+        <div class="plane-wrap">
+            <!-- 飞机俯视总图（在线图片） -->
+            <img class="plane-img" id="topViewImg" src="images/topview.jpg" alt="A320绕机俯视点位图">
+            <!-- 点位按钮坐标不变 -->
+            <button class="point-btn" data-id="1" style="top: 18%; left: 33%;">1</button>
+            <button class="point-btn" data-id="2" style="top: 1%; left: 50%;">2</button>
+            <button class="point-btn" data-id="3" style="top: 18%; left: 58%;">3</button>
+            <button class="point-btn" data-id="4" style="top: 31%; left: 50%;">4</button>
+            <button class="point-btn" data-id="5" style="top: 40%; left: 54%;">5</button>
+            <button class="point-btn" data-id="6" style="top: 45%; left: 55%;">6</button>
+            <button class="point-btn" data-id="7" style="top: 34%; left: 61%;">7</button>
+            <button class="point-btn" data-id="8" style="top: 45%; left: 67%;">8</button>
+            <button class="point-btn" data-id="9" style="top: 52%; left: 54%;">9</button>
+            <button class="point-btn" data-id="10" style="top: 62%; left: 54%;">10</button>
+            <button class="point-btn" data-id="11" style="top: 70%; left: 55%;">11</button>
+            <button class="point-btn" data-id="12" style="top: 74%; left: 55%;">12</button>
+            <button class="point-btn" data-id="13" style="top: 90%; left: 48%;">13</button>
+            <button class="point-btn" data-id="14" style="top: 70%; left: 43%;">14</button>
+            <button class="point-btn" data-id="15" style="top: 52%; left: 43%;">15</button>
+            <button class="point-btn" data-id="16" style="top: 34%; left: 37%;">16</button>
+            <button class="point-btn" data-id="17" style="top: 14%; left: 48%;">17</button>
+        </div>
+        <div class="tip">点击红色数字圆圈查看对应站位检查标准</div>
+    </div>
+
+    <!-- 详情页面 -->
+    <div id="detailPage">
+        <button class="back-btn" onclick="backToMain()">← 返回总图页面</button>
+        <div class="detail-title" id="detailTitle"></div>
+        <div class="img-box" id="imgBox"></div>
+        <div class="check-rule" id="ruleBox"></div>
+    </div>
+
+<script>
+// ===================== 图片路径配置 =====================
+// 在线模式：图片存放在 images/ 目录下，文件名与 key 对应
+// 如需部署到 GitHub Pages 子路径，修改下方 IMG_DIR 即可
+const IMG_DIR = "images/";
+
+function imgUrl(name) {
+    return IMG_DIR + name + ".jpg";
+}
+
+// 全部点位检查标准（完全沿用文档内容，无需修改）
+const pointData = {
+    1: {
+        title: "站位1：左前机身盖板",
+        imgs: ["1-1","1-2"],
+        rule: `
+        <h4>左前机身检查注意事项：</h4>
+        <ul>
+            <li>确认登机门缝无异物，防止滑梯的绑带，手柄机构正常，表面光洁</li>
+            <li>左前812氧气瓶电子舱门确认平整锁好，按钮按紧到位</li>
+        </ul>
+        `
+    },
+    2: {
+        title: "站位2：机头视角盖板",
+        imgs: ["2-1"],
+        rule: `
+        <h4>机头视角盖板检查注意事项：</h4>
+        <ul>
+            <li>到机位后确认皮托管三个已经摘下，三个起落架锁销都取下，前811电子舱门确认锁到位</li>
+        </ul>
+        `
+    },
+    3: {
+        title: "站位3：右前机身盖板",
+        imgs: ["3-1","3-2"],
+        rule: `
+        <h4>右前机身盖板检查注意事项：</h4>
+        <ul>
+            <li>货舱门操作手柄盖板确认盖紧锁好，锁扣水平啮合</li>
+            <li>舱门手柄三个联动的都贴紧无凸起，指示标都显示绿色</li>
+        </ul>
+        `
+    },
+    4: {
+        title: "站位4：四、机身中下部盖板",
+        imgs: ["4-1","4-2"],
+        rule: `
+        <h4>四、机身中下部盖板检查注意事项：</h4>
+        <ul>
+            <li>机腹检查盖板较多，且盖板的锁扣锁紧力度较大，需要特别注意</li>
+            <li>每个盖板需要手动确认无异常凸起，且轻敲盖板无异常松动</li>
+            <li>如电气盖板等航后如有打开养成及时关闭的习惯</li>
+            <li>如图是航后完成电气盖板忘记关闭</li>
+        </ul>
+        `
+    },
+    5: {
+        title: "站位5：加油盖板",
+        imgs: ["5-1"],
+        rule: `
+        <h4>加油盖板天线区别标准：</h4>
+        <ul>
+            <li>加油面板需要特别注意，航前短停都会操作打开。锁扣力度也较紧，摁压的力度较大</li>
+            <li>检查时确认加油完成后做最后的确认。</li>
+        </ul>
+        `
+    },
+    6: {
+        title: "站位6：起落架舱门收放盖板",
+        imgs: ["6-1"],
+        rule: `
+        <h4>起落架舱门收放盖板检查标准：</h4>
+        <ul>
+            <li>起落架舱门收放盖板有一根链接绳，关闭时需要一只手捋好再确认关闭到位</li>
+        </ul>
+        `
+    },
+    7: {
+        title: "站位7：右发左侧右发动机锁扣和滑油盖板",
+        imgs: ["7-1","7-2"],
+        rule: `
+        <h4>右发动机锁扣和滑油盖板检查标准：</h4>
+        <ul>
+            <li>发动机锁扣较低需要蹲下确认，1号锁扣关联包皮上的警示旗</li> 
+	    <li>2号和3号则更需要确认到位，不存在虚扣，最好可以触摸检</li>
+            <li>滑油口盖也需要敲击并触摸确认</li>
+        </ul>
+        `
+    },
+    8: {
+        title: "站位8：加油口盖",
+        imgs: ["8-1"],
+        rule: `
+        <h4>加油口盖检查注意事项：</h4>
+        <ul>
+            <li>加油口盖有方向标识，在加油完成需及时确认</li>
+	    <li>2、口盖的手柄确认到位无凸起。</li>
+        </ul>
+        `
+    },
+    9: {
+        title: "站位9：黄系统盖板",
+        imgs: ["9-1"],
+        rule: `
+        <h4>黄系统盖板检查注意事项：</h4>
+        <ul>
+            <li>系统勤务盖板锁扣也为啮合式，容易出现虚紧的状态，需要触摸检查。</li>
+        </ul>
+        `
+    },
+    10: {
+        title: "站位10：后货仓盖板",
+        imgs: ["10-1"],
+        rule: `
+        <h4>后货仓盖板标准：</h4>
+        <ul>
+            <li>货舱门操作手柄盖板确认盖紧锁好，锁扣水平啮合</li>
+            <li>舱门手柄三个联动的都贴紧无凸起，指示标都显示绿色</li>
+        </ul>
+        `
+    },
+    11: {
+        title: "站位11：散货舱门",
+        imgs: ["11-1"],
+        rule: `
+        <h4>散货舱门检查注意事项：</h4>
+        <ul>
+            <li>需要按压解锁和锁定，确认在光洁状态，防止异常锁定，从侧面观察是否有突出</li>
+        </ul>
+        `
+    },
+    12: {
+        title: "站位12：厕所与水勤务盖板",
+        imgs: ["12-1","12-2"],
+        rule: `
+        <h4>厕所勤务盖板检查注意事项：</h4>
+        <ul>
+            <li>厕所勤务盖板为高频率开关的面板，勤务完成需及时确认按压锁定到位</li>
+            <li>下部的为按压钮，上部的为指示。</li>
+            <li>水勤务面板也是上层指示，下层为按压钮</li>
+        </ul>
+        `
+    },
+    13: {
+        title: "站位13：APU舱门锁扣",
+        imgs: ["13-1"],
+        rule: `
+        <h4>APU舱门锁扣检查注意事项：</h4>
+        <ul>
+            <li>APU舱门锁扣较多，需要确认每个锁扣锁紧到位</li>
+        </ul>
+        `
+    },
+    14: {
+        title: "站位14：液压勤务面板",
+        imgs: ["14-1"],
+        rule: `
+        <h4>液压勤务面板检查：</h4>
+        <ul>
+            <li>液压勤务盖板也是带绳的盖板，也是绳子最容易漏出的盖板</li>
+	    <li>这类盖板养成一只手扶盖板一只手捋绳子到中间的习惯</li>
+	    <li>高速可能导致绳子被吸出，绕机时看见需要及时放回收好，减少非必要磨损而换件</li>
+        </ul>
+        `
+    },
+    15: {
+        title: "站位15：蓝系统油箱盖板",
+        imgs: ["15-1"],
+        rule: `
+        <h4>蓝系统油箱盖板检查注意事项：</h4>
+        <ul>
+            <li>蓝系统盖板开关频率应该是所有盖板里最少的，但是以防出现非正常结构失效，同样需要确认锁好</li>
+        </ul>
+        `
+    },
+    16: {
+        title: "站位16：左发动机锁扣和滑油盖板",
+        imgs: ["16-1","16-2"],
+        rule: `
+        <h4>左发动机锁扣和滑油盖板注意事项：</h4>
+        <ul>
+            <li>发动机锁扣较低需要蹲下确认，1号锁扣关联包皮上的警示旗</li>
+            <li>2号和3号则更需要确认到位，不存在虚扣，最好可以触摸检查</li>
+            <li>滑油口盖也需要敲击并触摸确认</li>
+        </ul>
+        `
+    },
+    17: {
+        title: "站位17：送机耳机盖板",
+        imgs: ["17-1"],
+        rule: `
+        <h4>送机耳机盖板检查注意事项：</h4>
+        <ul>
+            <li>送机最后确认耳机盖板锁到位</li>
+            <li>开关此类盖板动作一定要缓收缓放，特别是手指按压进去时，用力快速抽出时有可能会将手指卡住，边缘较为锋利容易受伤</li>
+        </ul>
+        `
+    },
+    18: {
+        title: "站位18：左翼后部",
+        imgs: ["18-2"],
+        rule: `
+        <h4>左机翼后部检查注意事项：</h4>
+        <ul>
+            <li>左翼放电刷标准数量5根，无折断丢失</li>
+            <li>在左右翼尖位置或者在后货舱位需要检查水平安定面和垂尾的前缘和上表面</li>
+        </ul>
+        `
+    },
+    19: {
+        title: "站位19：左机翼翼尖前缘",
+        imgs: ["19-1","19-2"],
+        rule: `
+        <h4>左机翼翼尖前缘检查注意事项：</h4>
+        <ul>
+            <li>导航灯NAV双备份，航后需切换至2号位测试点亮，避免短停失效</li>
+            <li>频闪灯STROBE航后打开ON位测试闪烁</li>
+            <li>前缘、后缘蒙皮检查雷击点、破损凹坑</li
+        </ul>
+        `
+    },
+    20: {
+        title: "站位20：左发左侧",
+        imgs: ["20-1","20-2","20-3"],
+        rule: `
+        <h4>发动机左侧检查注意事项：</h4>
+        <ul>
+            <li>确保发动机包皮指示旗未弹出</li> 
+	    <li>发动机左右两侧均有涡流发生器</li>
+            <li>短停绕机时注意翼根的燃油取样口，滴冷凝水时需要辨别下可能是燃油</li>
+            <li>检查发动机底部是否有滑油渗漏</li>
+            <li>发动机包皮指示旗未弹出；吊架预冷器雨天启动水蒸气为正常现象，需向机组解释</li>
+            <li>发动机叶片的随着运行时间的变长，复合材料叶片的掉皮等损伤一定严格查询是否有在册</li>
+        </ul>
+        `
+    },
+    21: {
+        title: "站位21：左发右侧",
+        imgs: ["21-1"],
+        rule: `
+        <h4>左发右侧检查注意事项：</h4>
+        <ul>
+            <li>右侧主要是滑油口盖和加滑油时的注意事项</li>
+            <li>中部是EEC冷却的进气口</li>
+            <li>下部是发动机防冰的排气格栅，注意检查格栅是否有雷击点和完整性</li>
+        </ul>
+        `
+    },
+    22: {
+        title: "站位22：主轮舱",
+        imgs: ["22-1","22-2"],
+        rule: `
+        <h4>主轮舱检查注意事项：</h4>
+        <ul>
+            <li>绿系统的主要部件都在轮舱，中间顶部是储压器压力指示</li>
+            <li>绿系统液压油的取样口也在顶部</li>
+            <li>PTU的左右侧都要确认其无任何渗漏</li>
+        </ul>
+        `
+    }
+
+};
+
+// ===== 页面显示控制 =====
+function showMain() {
+    document.getElementById("mainPage").style.display = "block";
+    document.getElementById("detailPage").style.display = "none";
+    window.scrollTo(0, 0);
+}
+
+function showDetail(id) {
+    const data = pointData[id];
+    if (!data) return;
+    document.getElementById("mainPage").style.display = "none";
+    document.getElementById("detailPage").style.display = "block";
+    document.getElementById("detailTitle").innerText = data.title;
+    // 渲染图片（从 images/ 目录加载在线图片）
+    const imgBox = document.getElementById("imgBox");
+    imgBox.innerHTML = "";
+    if(data.imgs.length > 0) {
+        // 自动生成中文图号：图一/图二/图三...
+        const cnNum = ["一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五"];
+        data.imgs.forEach((imgName, i) => {
+            // 统一字符串数组格式；兼容对象格式 {src} 以防万一
+            const src = (typeof imgName === "object" && imgName !== null) ? imgName.src : imgName;
+            const label = document.createElement("div");
+            label.className = "img-label";
+            label.textContent = "图" + (cnNum[i] || (i + 1));
+            imgBox.appendChild(label);
+            const img = document.createElement("img");
+            img.src = imgUrl(src);
+            img.alt = "检查参考图";
+            // 图片加载失败时隐藏对应的标签和图片
+            img.onerror = function() {
+                this.style.display = "none";
+                if (label) label.style.display = "none";
+            };
+            imgBox.appendChild(img);
+        })
+    } else {
+        imgBox.innerHTML = "<p>本站位无配套实拍参考图</p>";
+    }
+    // 渲染检查文字标准
+    document.getElementById("ruleBox").innerHTML = data.rule;
+    window.scrollTo(0, 0);
+}
+
+// ===== 手机返回键 / 浏览器后退 拦截（多重保障，兼容夸克/UC/微信等）=====
+// 核心思路：页面载入时先压一条"缓冲"历史，点红点进详情再压一条；
+// 这样按返回时先退到缓冲层（仍在网页内）→ 触发 popstate → 回到总图首页，
+// 而不是直接退出网页。总图再按返回才会退出。
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+var currentView = 'main'; // 当前页面：main / detail
+
+// 返回首页（页内按钮 / 浮动按钮共用）
+function backToMain() {
+    if (currentView === 'detail') {
+        history.back(); // 触发 popstate → showMain
+    } else {
+        showMain();
+    }
+}
+
+// 点击红点进入详情：压入一条历史记录
+document.querySelectorAll(".point-btn").forEach(btn => {
+    btn.addEventListener("click", function() {
+        var id = this.dataset.id;
+        showDetail(id);
+        currentView = 'detail';
+        try { history.pushState({ view: 'detail', id: id }, ''); } catch (e) {}
+    });
+});
+
+// 监听返回操作（硬件返回键 / 手势后退 / 浏览器后退）
+window.addEventListener('popstate', function() {
+    if (currentView === 'detail') {
+        // 详情 → 总图首页
+        showMain();
+        currentView = 'main';
+        // 再压一条缓冲，防止部分浏览器把"回到首页"误判为退出
+        try { history.pushState({ view: 'main' }, ''); } catch (e) {}
+    }
+    // currentView === 'main' 时不拦截，允许正常退出
+});
+// hashchange 作为备用监听（部分浏览器返回时走 hash 事件）
+window.addEventListener('hashchange', function() {
+    if (currentView === 'detail' && location.hash === '') {
+        showMain();
+        currentView = 'main';
+    }
+});
+
+// 页面载入：压一条初始缓冲，确保返回键能被 popstate 捕获
+try { history.pushState({ view: 'main' }, ''); } catch (e) {}
+
+// bfcache 兜底
+window.addEventListener('pageshow', function(e) { if (e.persisted) showMain(); });
+
+// 浮动"返回总图"按钮（硬件返回失效时的可靠兜底，常驻详情页右下角）
+var fab = document.createElement('button');
+fab.id = 'fabBack';
+fab.textContent = '← 返回总图';
+fab.addEventListener('click', backToMain);
+document.getElementById('detailPage').appendChild(fab);
+
+// ===== 密码登录 =====
+var LOGIN_PWD = "1566";   // 访问密码
+var overlay = document.getElementById('loginOverlay');
+var pwdInput = document.getElementById('pwdInput');
+var pwdBtn = document.getElementById('pwdBtn');
+var loginError = document.getElementById('loginError');
+
+// 本会话已通过验证（同一标签页内刷新不再重复输入）
+function unlockPage() {
+    overlay.classList.add('hidden');
+    pwdInput.value = '';
+    try { sessionStorage.setItem('a320_logged', '1'); } catch (e) {}
+}
+
+function checkPwd() {
+    if (pwdInput.value === LOGIN_PWD) {
+        unlockPage();
+    } else {
+        loginError.style.display = 'block';
+        pwdInput.value = '';
+        pwdInput.focus();
+    }
+}
+
+// 已登录则直接进入，否则等待输入
+(function initLogin() {
+    var logged = false;
+    try { logged = sessionStorage.getItem('a320_logged') === '1'; } catch (e) {}
+    if (logged) { unlockPage(); return; }
+    pwdBtn.addEventListener('click', checkPwd);
+    pwdInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') checkPwd();
+    });
+    setTimeout(function(){ pwdInput.focus(); }, 100);
+})();
+</script>
+</body>
+</html>
